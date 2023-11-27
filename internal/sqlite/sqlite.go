@@ -31,6 +31,11 @@ func (d *driver) Close(_ context.Context) error {
 	return d.db.Close()
 }
 
+// Dialect returns the database dialect
+func (d *driver) Dialect() string {
+	return "sqlite"
+}
+
 // CreateMigrationsTable creates the migrations table
 // If the table already exists, it does nothing
 func (d *driver) CreateMigrationsTable(_ context.Context, migrationsTable string) error {
@@ -38,18 +43,10 @@ func (d *driver) CreateMigrationsTable(_ context.Context, migrationsTable string
 		CREATE TABLE IF NOT EXISTS ` + migrationsTable + ` (
 			version INTEGER NOT NULL PRIMARY KEY,
 			fname TEXT NOT NULL,
+			hash TEXT NOT NULL,
 			applied_at DATETIME NOT NULL
 		)
 	`)
-
-	return err
-}
-
-// ValidateQuery validates a query
-// It executes EXPLAIN QUERY PLAN <query>
-// If the query is invalid, it returns an error
-func (d *driver) ValidateQuery(_ context.Context, query string) error {
-	_, err := d.db.Exec("EXPLAIN QUERY PLAN " + query)
 
 	return err
 }
@@ -59,7 +56,7 @@ func (d *driver) ValidateQuery(_ context.Context, query string) error {
 func (d *driver) SelectMigrations(ctx context.Context, migrationsTable string) ([]simplemigrate.Migration, error) {
 	//nolint:gosec // migrations table should be safe
 	rows, err := d.db.QueryContext(ctx,
-		"SELECT version, fname, applied_at FROM "+migrationsTable+" ORDER BY version")
+		"SELECT version, fname, hash, applied_at FROM "+migrationsTable+" ORDER BY version")
 	if err != nil {
 		return nil, err
 	}
@@ -73,7 +70,7 @@ func (d *driver) SelectMigrations(ctx context.Context, migrationsTable string) (
 
 		var appliedAt string
 
-		err := rows.Scan(&m.Version, &m.Fname, &appliedAt)
+		err := rows.Scan(&m.Version, &m.Fname, &m.Hash, &appliedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -120,7 +117,7 @@ func (d *driver) ApplyMigrations(ctx context.Context, migrationsTable string, in
 }
 
 func (d *driver) applyMigrations(ctx context.Context, migrationsTable string, tx *sql.Tx, migrations []simplemigrate.Migration) error {
-	insertQ := "INSERT INTO " + migrationsTable + " (version, fname, applied_at) VALUES (?, ?, ?)"
+	insertQ := "INSERT INTO " + migrationsTable + " (version, fname, hash, applied_at) VALUES (?, ?, ?, ?)"
 
 	for _, m := range migrations {
 		fmt.Printf("%s...", m.Fname)
@@ -154,7 +151,7 @@ func (d *driver) applyOne(ctx context.Context, insertQ string, tx *sql.Tx, m sim
 		}
 	}
 
-	_, err = trans.ExecContext(ctx, insertQ, m.Version, m.Fname, time.Now().Format(time.RFC3339Nano))
+	_, err = trans.ExecContext(ctx, insertQ, m.Version, m.Fname, m.Hash, time.Now().UTC().Format(time.RFC3339Nano))
 	if err != nil {
 		return err
 	}

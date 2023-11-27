@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/gosom/simplemigrate"
+	"github.com/gosom/simplemigrate/internal/sqlfluff"
 	"github.com/gosom/simplemigrate/internal/sqlite"
 )
 
@@ -36,7 +37,12 @@ func run(ctx context.Context) error {
 	}
 
 	if args.enableQueryValidation {
-		opts = append(opts, simplemigrate.WithEnableQueryValidation())
+		validator, err := sqlfluff.New()
+		if err != nil {
+			return err
+		}
+
+		opts = append(opts, simplemigrate.WithQueryValidator(validator))
 	}
 
 	if args.runInTransaction {

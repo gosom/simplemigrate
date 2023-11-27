@@ -2,6 +2,7 @@ package simplemigrate
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -22,6 +23,8 @@ var (
 	ErrInvalidMigrationFile = errors.New("invalid migration file")
 	// ErrMigrationFolder is returned when the migration folder is invalid
 	ErrMigrationFolder = errors.New("invalid migration folder")
+	// ErrInvalidQuery is returned when the query is invalid
+	ErrInvalidQuery = errors.New("invalid query")
 )
 
 const (
@@ -35,10 +38,13 @@ type Migration struct {
 	Fname      string
 	AppliedAt  *time.Time
 	Statements []string
+	Hash       string
 }
 
 // DBDriver represents a database driver
 type DBDriver interface {
+	// Dialect returns the database dialect
+	Dialect() string
 	// Close closes the connection to the database
 	Close(ctx context.Context) error
 	// CreateMigrationsTable creates the migrations table
@@ -50,16 +56,16 @@ type DBDriver interface {
 	// migrationsTable is the name of the migrations table
 	// It returns a sorted slice (by Version ascending) of migrations or an error
 	SelectMigrations(ctx context.Context, migrationsTable string) ([]Migration, error)
-	// ValidateQuery validates a query
-	// query is the query to validate
-	// It returns an error if the query is invalid
-	ValidateQuery(ctx context.Context, query string) error
 	// ApplyMigrations applies migrations to the database
 	// migrationsTable is the name of the migrations table
 	// inTx is a flag that indicates if the migrations should be applied in a transaction
 	// migrations is the slice of migrations to apply
 	// It returns an error if something goes wrong
 	ApplyMigrations(ctx context.Context, migrationsTable string, inTx bool, migrations []Migration) error
+}
+
+type QueryValidator interface {
+	ValidateQuery(ctx context.Context, dialect, query string) error
 }
 
 // Option represents a migrator option
@@ -71,9 +77,9 @@ type Migrator struct {
 	driver          DBDriver
 	migrationsTable string
 
-	folder                fs.FS
-	enableQueryValidation bool
-	inTransaction         bool
+	folder        fs.FS
+	qvalidator    QueryValidator
+	inTransaction bool
 }
 
 // New is a constructor for Migrator
@@ -111,13 +117,12 @@ func WithInTransaction() Option {
 	}
 }
 
-// WithEnableueryValidation is an option to enable query validation
+// WithQueryValidator is an option to enable query validation
 // It is disabled by default
 // Its purpose is to validate queries before applying them
-// This is WIP and it is not recommended to use it
-func WithEnableQueryValidation() Option {
+func WithQueryValidator(validator QueryValidator) Option {
 	return func(m *Migrator) error {
-		m.enableQueryValidation = true
+		m.qvalidator = validator
 
 		return nil
 	}
@@ -184,14 +189,10 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 		return err
 	}
 
-	fmt.Println("Local migrations count:", len(localMigrations))
-
 	appliedMigrations, err := m.driver.SelectMigrations(ctx, m.migrationsTable)
 	if err != nil {
 		return err
 	}
-
-	fmt.Println("Applied migrations count:", len(appliedMigrations))
 
 	if len(localMigrations) < len(appliedMigrations) {
 		return fmt.Errorf("%w: %s", ErrInvalidMigrationFile, "local migrations are less than applied migrations")
@@ -199,6 +200,10 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 
 	for i := range appliedMigrations {
 		if appliedMigrations[i].Version != localMigrations[i].Version {
+			return fmt.Errorf("%w: %s", ErrInvalidMigrationFile, "local migrations are not in sync with applied migrations")
+		}
+
+		if appliedMigrations[i].Hash != localMigrations[i].Hash {
 			return fmt.Errorf("%w: %s", ErrInvalidMigrationFile, "local migrations are not in sync with applied migrations")
 		}
 	}
@@ -211,15 +216,14 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 		return nil
 	}
 
-	fmt.Println("Migrations to apply count:", len(toApply))
-
 	for _, migration := range toApply {
 		if err := m.validate(ctx, migration); err != nil {
 			return err
 		}
 	}
 
-	fmt.Println("Apply migrations...")
+	fmt.Printf("Applying %d migrations [start_version=%d end_version=%d]...\n",
+		len(toApply), toApply[0].Version, toApply[len(toApply)-1].Version)
 
 	return m.driver.ApplyMigrations(ctx, m.migrationsTable, m.inTransaction, toApply)
 }
@@ -256,6 +260,8 @@ func (m *Migrator) readMigrations(_ context.Context) ([]Migration, error) {
 			return nil, err
 		}
 
+		migration.Hash = computeHash(data)
+
 		statements := strings.Split(string(data), "-- migrate:next")
 
 		migration.Statements = statements
@@ -288,12 +294,10 @@ func (m *Migrator) validate(ctx context.Context, migration Migration) error {
 		return fmt.Errorf("%w: %s", ErrInvalidMigrationFile, migration.Fname+" is empty")
 	}
 
-	if m.enableQueryValidation {
+	if m.qvalidator != nil {
 		for _, statement := range migration.Statements {
-			fmt.Println("Validating query:", statement)
-
-			if err := m.driver.ValidateQuery(ctx, statement); err != nil {
-				return fmt.Errorf("%s: %w", migration.Fname, err)
+			if err := m.qvalidator.ValidateQuery(ctx, m.driver.Dialect(), statement); err != nil {
+				return fmt.Errorf("%s: %w %s", migration.Fname, ErrInvalidQuery, err)
 			}
 		}
 	}
@@ -336,4 +340,10 @@ func isDir(path string) (bool, error) {
 	}
 
 	return fileInfo.IsDir(), nil
+}
+
+func computeHash(b []byte) string {
+	hash := sha256.Sum256(b)
+
+	return fmt.Sprintf("%x", hash)
 }
