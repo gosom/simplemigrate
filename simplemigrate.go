@@ -1,6 +1,7 @@
 package simplemigrate
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"errors"
@@ -42,6 +43,8 @@ type Migration struct {
 }
 
 // DBDriver represents a database driver
+//
+//go:generate mockgen -destination=internal/mocks/mock_dbdriver.go -package=mocks . DBDriver
 type DBDriver interface {
 	// Dialect returns the database dialect
 	Dialect() string
@@ -64,6 +67,9 @@ type DBDriver interface {
 	ApplyMigrations(ctx context.Context, migrationsTable string, inTx bool, migrations []Migration) error
 }
 
+// QueryValidator represents a query validator
+//
+//go:generate mockgen -destination=internal/mocks/mock_queryvalidator.go -package=mocks . QueryValidator
 type QueryValidator interface {
 	ValidateQuery(ctx context.Context, dialect, query string) error
 }
@@ -76,10 +82,10 @@ type Option func(*Migrator) error
 type Migrator struct {
 	driver          DBDriver
 	migrationsTable string
-
-	folder        fs.FS
-	qvalidator    QueryValidator
-	inTransaction bool
+	printer         func(string, ...any)
+	folder          fs.FS
+	qvalidator      QueryValidator
+	inTransaction   bool
 }
 
 // New is a constructor for Migrator
@@ -222,7 +228,7 @@ func (m *Migrator) Migrate(ctx context.Context) error {
 		}
 	}
 
-	fmt.Printf("Applying %d migrations [start_version=%d end_version=%d]...\n",
+	fmt.Printf("Applying %d migrations [start_version=%d end_version=%d]\n",
 		len(toApply), toApply[0].Version, toApply[len(toApply)-1].Version)
 
 	return m.driver.ApplyMigrations(ctx, m.migrationsTable, m.inTransaction, toApply)
@@ -259,6 +265,8 @@ func (m *Migrator) readMigrations(_ context.Context) ([]Migration, error) {
 		if err != nil {
 			return nil, err
 		}
+
+		data = bytes.TrimSpace(data)
 
 		migration.Hash = computeHash(data)
 

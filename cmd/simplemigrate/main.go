@@ -54,6 +54,26 @@ func run(ctx context.Context) error {
 	return migrator.Migrate(ctx)
 }
 
+type args struct {
+	runInTransaction      bool
+	enableQueryValidation bool
+	migrationsFolder      string
+	migrationsTableName   string
+}
+
+func parseArgs() args {
+	ans := args{}
+
+	flag.BoolVar(&ans.runInTransaction, "transaction", false, "run all migrations in a transaction")
+	flag.BoolVar(&ans.enableQueryValidation, "enable-query-validation", false, "enables query validation (It's WIP - avoid USAGE)")
+	flag.StringVar(&ans.migrationsFolder, "migrations-folder", "migrations", "migrations folder")
+	flag.StringVar(&ans.migrationsTableName, "migrations-table-name", "schema_migrations", "migrations table name")
+
+	flag.Parse()
+
+	return ans
+}
+
 func newDBDriver(ctx context.Context) (simplemigrate.DBDriver, error) {
 	connURL, ok := os.LookupEnv("DATABASE_URL")
 	if !ok {
@@ -81,24 +101,4 @@ func newDBDriver(ctx context.Context) (simplemigrate.DBDriver, error) {
 	default:
 		return nil, simplemigrate.ErrUnknownDriver
 	}
-}
-
-type args struct {
-	runInTransaction      bool
-	enableQueryValidation bool
-	migrationsFolder      string
-	migrationsTableName   string
-}
-
-func parseArgs() args {
-	ans := args{}
-
-	flag.BoolVar(&ans.runInTransaction, "transaction", false, "run all migrations in a transaction")
-	flag.BoolVar(&ans.enableQueryValidation, "enable-query-validation", false, "enables query validation (It's WIP - avoid USAGE)")
-	flag.StringVar(&ans.migrationsFolder, "migrations-folder", "migrations", "migrations folder")
-	flag.StringVar(&ans.migrationsTableName, "migrations-table-name", "schema_migrations", "migrations table name")
-
-	flag.Parse()
-
-	return ans
 }
