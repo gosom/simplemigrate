@@ -1,5 +1,8 @@
 # simplemigrate
 
+![SimpleMigrate Logo](https://github.com/gosom/simplemigrate/logo.png)
+
+
 A simple, yet powerful, database migration library for Go. Designed for ease of use and safety in handling schema changes, `simplemigrate` currently supports SQLite, with plans to extend support to PostgreSQL and MySQL soon.
 
 ## Introduction
@@ -97,4 +100,8 @@ Contributions to `simplemigrate` are welcome. Feel free to open issues or submit
 ## Contact
 
 For questions and support, please open an issue in the GitHub repository.
+
+## Logo 
+
+The logo is generated using OpenAI's DALL-E.
 
