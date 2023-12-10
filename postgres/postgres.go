@@ -46,7 +46,7 @@ func (d *driver) CreateMigrationsTable(_ context.Context, migrationsTable string
 			version INTEGER NOT NULL PRIMARY KEY,
 			fname TEXT NOT NULL,
 			hash TEXT NOT NULL,
-			applied_at TIMETSTAMPTZ NOT NULL
+			applied_at TIMESTAMPTZ NOT NULL
 		)
 	`)
 
