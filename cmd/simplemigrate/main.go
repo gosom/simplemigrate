@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"github.com/gosom/simplemigrate"
+	"github.com/gosom/simplemigrate/internal/postgres"
 	"github.com/gosom/simplemigrate/internal/sqlfluff"
 	"github.com/gosom/simplemigrate/internal/sqlite"
 )
@@ -98,6 +99,18 @@ func newDBDriver(ctx context.Context) (simplemigrate.DBDriver, error) {
 		}
 
 		return sqlite.New(conn), nil
+	case "postgres":
+		conn, err := postgres.Connect(connURL)
+		if err != nil {
+			return nil, err
+		}
+
+		err = conn.PingContext(ctx)
+		if err != nil {
+			return nil, err
+		}
+
+		return postgres.New(conn), nil
 	default:
 		return nil, simplemigrate.ErrUnknownDriver
 	}

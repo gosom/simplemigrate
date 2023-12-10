@@ -38,9 +38,9 @@ func (d *driver) Dialect() string {
 
 // CreateMigrationsTable creates the migrations table
 // If the table already exists, it does nothing
-func (d *driver) CreateMigrationsTable(_ context.Context, migrationsTable string) error {
-	_, err := d.db.Exec(`
-		CREATE TABLE IF NOT EXISTS ` + migrationsTable + ` (
+func (d *driver) CreateMigrationsTable(ctx context.Context, migrationsTable string) error {
+	_, err := d.db.ExecContext(ctx, `
+		CREATE TABLE IF NOT EXISTS `+migrationsTable+` (
 			version INTEGER NOT NULL PRIMARY KEY,
 			fname TEXT NOT NULL,
 			hash TEXT NOT NULL,
