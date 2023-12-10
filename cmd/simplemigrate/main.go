@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/gosom/simplemigrate"
-	"github.com/gosom/simplemigrate/internal/postgres"
-	"github.com/gosom/simplemigrate/internal/sqlfluff"
-	"github.com/gosom/simplemigrate/internal/sqlite"
+	"github.com/gosom/simplemigrate/postgres"
+	"github.com/gosom/simplemigrate/sqlfluff"
+	"github.com/gosom/simplemigrate/sqlite"
 )
 
 func main() {
