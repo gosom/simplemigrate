@@ -70,7 +70,7 @@ func (d *driver) SelectMigrations(ctx context.Context, migrationsTable string) (
 	for rows.Next() {
 		var m simplemigrate.Migration
 
-		err := rows.Scan(&m.Version, &m.Fname, &m.Hash, m.AppliedAt)
+		err := rows.Scan(&m.Version, &m.Fname, &m.Hash, &m.AppliedAt)
 		if err != nil {
 			return nil, err
 		}
