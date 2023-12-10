@@ -3,7 +3,7 @@
 ![SimpleMigrate Logo](https://github.com/gosom/simplemigrate/blob/main/logo.png)
 
 
-A simple, yet powerful, database migration library for Go. Designed for ease of use and safety in handling schema changes, `simplemigrate` currently supports SQLite, with plans to extend support to PostgreSQL and MySQL soon.
+A database migration library for Go. Designed for ease of use and safety in handling schema changes, `simplemigrate` currently supports SQLite, with plans to extend support to PostgreSQL and MySQL soon.
 
 ## Introduction
 
@@ -84,7 +84,7 @@ I recommend to check usage in `cmd/main.go`
 `simplemigrate` can be configured with various options:
 
 - `WithInTransaction`: Runs all migrations within a single transaction.
-- `WithQueryValidation`: Enables SQL query validation in migration files (not yet implemented).
+- `WithQueryValidation`: Enables SQL query validation in migration files.
 - `WithSystemFS`: Uses the system filesystem for migration files.
 - `WithEmbedFS`: Uses a embed file system (if you want to embed your migrations in the binary)
 - `WithMigrationTable`: Change the default (schema_migrations) table name
